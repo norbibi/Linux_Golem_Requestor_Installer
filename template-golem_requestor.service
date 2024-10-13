@@ -1,0 +1,13 @@
+[Unit]
+Description=Golem requestor
+After=network.target
+
+[Service]
+User=MY_USER
+Group=MY_USER
+Environment=PATH=/home/MY_USER/.local/bin
+WorkingDirectory=/home/MY_USER
+ExecStart=/home/MY_USER/.local/bin/yagna service run
+
+[Install]
+WantedBy=default.target

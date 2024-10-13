@@ -1,0 +1,228 @@
+#!/bin/bash
+
+install_service() {
+	sudo cp -f template-golem_requestor.service /etc/systemd/system/golem_requestor.service
+	sudo sed -i 's/MY_USER/'$USER'/' /etc/systemd/system/golem_requestor.service
+	sudo chmod 644 /etc/systemd/system/golem_requestor.service
+}
+
+uninstall_service() {
+	sudo rm /etc/systemd/system/golem_requestor.service
+}
+
+start_service() {
+	sudo systemctl enable --now golem_requestor.service
+}
+
+stop_service() {
+	sudo systemctl disable --now golem_requestor.service
+}
+
+restart_service() {
+	sudo systemctl restart golem_requestor.service
+}
+
+install_yagna() {
+	curl -sSf https://join.golem.network/as-requestor | bash -
+	echo 'export PATH="$HOME/.local/bin:$PATH"' >> $HOME/.bashrc
+	source $HOME/.bashrc
+}
+
+request_test_tokens() {
+	yagna payment fund
+}
+
+check_app_key() {
+	yagna_app_key_count=$('yagna app-key list --json | jq length')
+	if [[ $yagna_app_key_count -eq 0 ]]; then
+		echo "inexistant"
+	else
+		echo "exists"
+	fi
+}
+
+get_app_key() {
+	echo $(yagna app-key list --json | jq '.[0]["key"]' | tr -d '"')
+}
+
+create_app_key() {
+	echo $(yagna app-key create my_app_key --json | tr -d '"')
+}
+
+check_if_service_exists() {
+	if [ -f "/etc/systemd/system/golem_requestor.service" ]; then
+		echo true
+	else
+		echo false
+	fi
+}
+
+get_service_state() {
+	state=$(systemctl is-active --quiet golem_requestor.service && echo active)
+	if [ $state == "active" ]; then
+		echo true
+	else
+		echo false
+	fi
+}
+
+get_service_status() {
+	service_exists=$(check_if_service_exists)
+	if [ $service_exists == "true" ]; then
+		state=$(get_service_state)
+		if [ $state == "true" ]; then
+			echo "started"
+		else
+			echo "stopped"
+		fi
+	else
+		echo "inexistant"
+	fi
+}
+
+install_all() {
+	echo
+	echo "Install Yagna"
+	install_yagna
+	echo "Yagna installed with success"
+
+	echo
+	echo "Install and start service"
+	if [ $service_status == "started" ]; then
+		restart_service
+		echo "Service already installed, restarted with success"
+	elif [ $service_status == "stopped" ]; then
+		start_service
+		echo "Service already installed, started with success"
+	elif [ $service_status == "inexistant" ]; then
+		install_service
+		start_service
+		echo "Service installed and started with success"
+	fi
+
+	echo
+	echo "Create app-key"
+	app_key_check=$(check_app_key)
+	if [ $app_key_check == "inexistant" ]; then
+		app_key=$(create_app_key)
+		echo "App-key alreday exists"
+	else
+		app_key=$(get_app_key)
+		echo "App-key created with success"
+	fi
+
+	echo
+	echo "Request test tokens"
+}
+
+check_jq() {
+	if ! command -v jq 2>&1 >/dev/null
+	then
+	    sudo apt-get update
+	    sudo apt-get install jq
+	fi
+}
+
+check_jq
+
+while true; do
+	clear
+	echo "  ================ Golem Requestor Service Management ================"
+	echo
+	echo "    1: Install/Update Yagna, Service, App-key, Test tokens"
+	echo "    2: Install service"
+	echo "    3: Uninstall service"
+	echo "    4: Start service"
+	echo "    5: Stop service"
+	echo "    6: Restart service"
+	echo "    7: Get service status"
+	echo "    8: Request test tokens"
+	echo "    0: Quit"
+	echo
+	echo -n "  Please make a selection: "
+	read choice
+	echo
+
+	case $choice in
+		1)
+			echo "Install/Update Yagna, Service, App-key, Test tokens"
+			;;
+		2)
+			echo "Install service"
+			service_status=$(get_service_status)
+			if [ $service_status == "inexistant" ]; then
+				install_service
+				echo "    Service installed with success"
+			else
+				echo "    Service is already installed"
+			fi
+			;;
+		3)
+			echo "Uninstall service"
+			service_status=$(get_service_status)
+			if [ $service_status == "started" ]; then
+				echo "    Error, service is started, please stop it before"
+			elif [ $service_status == "stopped" ]; then
+				uninstall_service
+				echo "    Service uninstalled with success"
+			else
+				echo "    Service is not installed"
+			fi
+			;;
+		4)
+			echo "Start service"
+			service_status=$(get_service_status)
+			if [ $service_status == "started" ]; then
+				echo "    Service is already started"
+			elif [ $service_status == "stopped" ]; then
+				start_service
+				echo "    Service started with success"
+			else
+				echo "    Error, service is not installed"
+			fi
+			;;
+		5)
+			echo "Stop service"
+			service_status=$(get_service_status)
+			if [ $service_status == "started" ]; then
+				stop_service
+				echo "    Service stopped with success"
+			elif [ $service_status == "stopped" ]; then
+				echo "    Service is already stopped"
+			else
+				echo "    Error, service is not installed"
+			fi
+			;;
+		6)
+			echo "Restart service"
+			service_status=$(get_service_status)
+			if [ $service_status == "started" ]; then
+				sudo systemctl restart golem_requestor.service
+				echo "    Service restarted with success"
+			elif [ $service_status == "stopped" ]; then
+				echo "    Error, service is not started"
+			else
+				echo "    Error, service is not installed"
+			fi
+			;;
+		7)
+			echo "Get service status"
+			service_status=$(get_service_status)
+			if [ $service_status == "started" ]; then
+				echo "    Service is started"
+			elif [ $service_status == "stopped" ]; then
+				echo "    Service is not started"
+			else
+				echo "    Service is not installed"
+			fi
+			;;
+		8)
+			echo "Request test tokens"
+			;;
+		0)
+			break
+			;;
+	esac
+	echo
+	read -p "Press any key..."
+done

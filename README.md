@@ -8,7 +8,7 @@ Indeed, initially, you have to:
 - Create the app-key.
 - Request test tokens.  
 
-In addition, you need to first launch the daemon in a dedicated window before running your application. 
+In addition, you need to first launch the daemon in a dedicated window before running your application.  
 Systemd is used to wrap Yagna daemon as a Linux service.
 
 **Thus, this tool makes it possible to automate the installation of the daemon.**  
